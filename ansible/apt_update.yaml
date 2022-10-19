@@ -1,0 +1,19 @@
+---
+
+- name: install docker
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+
+  - name: Set timezone to Asia/Tokyo
+    community.general.timezone:
+      name: Asia/Taipei
+
+  - name: Run apt upgrade
+    apt:
+      name: "*"
+      state: latest
+      update_cache: yes
+      cache_valid_time: 432000

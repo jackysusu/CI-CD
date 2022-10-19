@@ -1,0 +1,43 @@
+- name: apt install gnupg
+  apt:
+    name: 
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+    update_cache: yes
+
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: download Docker repo
+  apt_repository:
+    repo: deb https://download.docker.com/linux/ubuntu focal stable
+    state: present
+    filename: download_docker_com_linux_ubuntu
+
+- name: apt install Docker
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+      - docker-compose
+    state: present
+    update_cache: yes
+  register: install_docker
+
+- name: adding jacky to docker group
+  user:
+    name: jacky
+    groups: docker
+    append: yes
+
+- name: start Docker service
+  service:
+    name: docker
+    state: started

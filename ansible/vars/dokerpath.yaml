@@ -1,0 +1,2 @@
+docker_app: "mysql"
+image_tag: "TF_image_tag"

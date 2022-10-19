@@ -1,0 +1,23 @@
+- name: Add Mongodb key at the URL
+  apt_key:
+    url: https://www.mongodb.org/static/pgp/server-6.0.asc
+    state: present
+
+- name: download repo
+  apt_repository:
+    repo: deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse
+    state: present
+    filename: /etc/apt/sources.list.d/mongodb-org-6.0.list
+
+- name: apt install
+  apt:
+    name:
+      - mongodb-org
+      - mongodb-mongosh
+    state: present
+    update_cache: yes
+
+- name: start mongodb service
+  service:
+    name: mongod
+    state: started

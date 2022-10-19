@@ -1,0 +1,45 @@
+version: '3'
+services:
+  nginx:
+    container_name: nginx
+    build: ./nginx
+    depends_on:
+      - website1
+      - website2
+      - website3
+    ports:
+      - 80:80
+    networks:
+      vpcbr:
+           ipv4_address: "10.1.0.5"
+  website1:
+    container_name: website1
+    build: ./node
+    environment:
+      - PORT=8080
+    networks:
+      vpcbr:
+           ipv4_address: "10.1.0.11"
+  website2:
+    container_name: website2
+    build: ./node
+    environment:
+      - PORT=8081
+    networks:
+      vpcbr:
+           ipv4_address: "10.1.0.12"
+  website3:
+    container_name: website3
+    build: ./node
+    environment:
+      - PORT=8082
+    networks:
+      vpcbr:
+          ipv4_address: "10.1.0.13"
+networks:
+  vpcbr:
+      driver: bridge
+      ipam:
+        driver: default
+        config:
+          - subnet: "10.1.0.0/24"

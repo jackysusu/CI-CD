@@ -1,0 +1,66 @@
+---
+
+- name: install docker
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+
+    - name: Set timezone to Asia/Tokyo
+      community.general.timezone:
+        name: Asia/Taipei
+
+    - name: include install-docker
+      include_role:
+        name: install-docker
+
+- name: docker run mysql in DBserver
+  hosts: db
+  become: yes
+  gather_facts: no
+  vars:
+    docker_app: "mysql"
+
+  tasks:
+
+    - name: create docker.d/{{ docker_app }} directory
+      file:
+        path: "~/docker.d/{{ docker_app }}"
+        state: directory
+
+    - name: copy dockerfile to remote
+      copy:
+        src: "docker.d/{{ docker_app }}/docker-compose.yaml"
+        dest: "~/docker.d/{{ docker_app }}/docker-compose.yaml"
+        mode: "755"
+        force: yes
+
+    - name: mysql docker-compose up
+      community.docker.docker_compose:
+        project_src: "~/docker.d/{{ docker_app }}"
+        state: present
+
+- name: docker run nginx
+  hosts: web
+  become: yes
+  gather_facts: no
+
+  tasks:
+
+    - name: create docker.d/nginx directory
+      file:
+        path: "/tmp/nginx.d"
+        state: directory
+
+    - name: copy nginx dockerfile to remote
+      copy:
+        src: "docker.d/nginx.d/"
+        dest: "/tmp/nginx.d/"
+        mode: "755"
+        force: yes
+
+    - name: nginx docker-compose up
+      community.docker.docker_compose:
+        project_src: "/tmp/nginx.d"
+        state: present

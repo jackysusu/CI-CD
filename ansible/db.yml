@@ -1,0 +1,46 @@
+---
+
+- name: install docker
+  hosts: db
+  become: yes
+  gather_facts: no
+  vars:
+    docker_app: "mysql"
+
+  tasks:
+    - name: Copy file with ca script
+      copy:
+        src: ./scripts/nameserver.sh
+        dest: /tmp/nameserver.sh
+        mode: '755'  
+
+    - name: Execute the command ca script
+      ansible.builtin.shell: /tmp/nameserver.sh  
+
+    - name: print var
+      debug:
+        msg: "docker app path = {{ docker_app }}"
+
+    - name: create docker.d/{{ docker_app }} directory
+      file:
+        path: "~/docker.d/{{ docker_app }}"
+        state: directory
+
+    - name: copy dockerfile to remote
+      copy:
+        src: "docker.d/{{ docker_app }}/docker-compose.yaml"
+        dest: ~/docker.d/{{ docker_app }}/docker-compose.yaml
+        force: yes
+
+    - name: include install-docker
+      include_role:
+        name: install-docker
+
+    - name: docker-compose up
+      community.docker.docker_compose:
+        project_src: ~/docker.d/{{ docker_app }}
+        state: present
+
+    - name: print var
+      debug:
+        var: install_docker

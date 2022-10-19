@@ -1,0 +1,7 @@
+[dev]
+host1 ansible_ssh_host=192.168.11.51
+db1 ansible_ssh_host=192.168.11.53
+
+[stage]
+host2 ansible_ssh_host=192.168.11.52
+db2 ansible_ssh_host=192.168.11.54

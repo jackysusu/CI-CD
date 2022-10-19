@@ -1,0 +1,119 @@
+IMAGE = ['nginx', 'node']
+
+pipeline {
+
+    agent any
+        environment {
+        PATH = "/var/lib/jenkins/.local/bin:$PATH"
+        IMAGE_TAG = "${env.BUILD_ID}"
+        HARBOR_PASS = credentials("harbor_pass")
+        REGISTRY = "harbor.jad.local"
+        REPOSITROY = "library"
+        }
+
+    stages {
+
+        // Checkout SCM
+        // stage("Checkout") {
+        //     steps {
+        //         checkout([$class: "GitSCM", branches: [[name: "*/main"]], extensions: [], userRemoteConfigs: [[url: "git@gitlab.jad.local:jacky/project1.git"]]])
+        //     }
+        // }
+
+        //Check Active Choices virable
+        stage('Active Choices Parameter') {
+            steps {
+                echo "*****  ${Terraform}  ******"
+            }
+        }
+
+        // Building Docker images to jenkins server
+        stage('Build nginx image') {
+            steps {
+                script {
+                    dir("ansible/docker.d/nginx.d/${IMAGE[0]}"){
+                        dockerImage = docker.build "${IMAGE[0]}:${IMAGE_TAG}"
+                    }
+                    dir("ansible/docker.d/nginx.d/${IMAGE[1]}"){
+                        dockerImage = docker.build "${IMAGE[1]}:${IMAGE_TAG}"
+                    }
+                }
+            }
+        }
+
+        // Push images to Harbor
+        stage('Push image to Harbor') {
+            steps {
+                echo "$HARBOR_PASS_PSW | docker login $REGISTRY -u 'jacky' --password-stdin"
+                sh "docker tag ${IMAGE[0]}:${IMAGE_TAG} $REGISTRY/${REPOSITROY}/${IMAGE[0]}:${IMAGE_TAG}"
+                sh "docker push $REGISTRY/${REPOSITROY}/${IMAGE[0]}:${IMAGE_TAG}"
+                sh "docker tag ${IMAGE[1]}:${IMAGE_TAG} $REGISTRY/${REPOSITROY}/${IMAGE[1]}:${IMAGE_TAG}"
+                sh "docker push $REGISTRY/${REPOSITROY}/${IMAGE[1]}:${IMAGE_TAG}"
+                sh "sed -i 's#TF_image_tag#${IMAGE_TAG}#g' ./ansible/vars/dokerpath.yaml"
+            }
+        }
+
+        // Clear all image in jenkins
+        // stage('Remove images in Jenkins') {
+        //     steps {
+        //         sh "docker system prune -af"
+        //         }
+        // }
+
+        stage('buiding instruction') {        
+
+            parallel {
+
+                stage ("Terraform Action") {
+                    steps {
+                        sh ("terraform -chdir='./terraform' init")
+                        echo "***** Terraform action is -> ${Terraform}"
+                        sh ("terraform -chdir='./terraform' ${Terraform} -var-file='../../secret.tfvars' --auto-approve")
+                    }
+                }  
+
+                stage ("Terraform2 Action") {
+                    steps {
+                        sh ("terraform -chdir='./terraform2' init")
+                        echo "***** Terraform2 action is -> ${Terraform}"
+                        sh ("terraform -chdir='./terraform2' ${Terraform} -var-file='../../secret.tfvars' --auto-approve")
+                        echo "+++++ action is -> ${Terraform}  +++++"
+                    }
+                }
+            }
+        }
+
+        stage('wait for vm power on') {
+            steps {
+                sh "sleep 45"
+            }
+        }
+
+        stage('Depolyment') {        
+
+            parallel {
+
+                // Use Ansible Deploy
+                stage ("Ansible dev Deployment") {
+                    steps {
+                        sh "pwd"
+                        dir('./ansible') {
+                        sh "ansible dev -m ping"
+                        sh "ansible-playbook all.yml"
+                        }
+                    }
+                }
+
+                // Use Ansible Deploy
+                stage ("Ansible stage Deployment") {
+                    steps {
+                        dir('./ansible') {
+                        sh "ansible stage -m ping"
+                        sh "ansible-playbook stage.yml"
+                        }
+                    }
+                }   
+            }
+        }
+    }
+}

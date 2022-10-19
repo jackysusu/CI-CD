@@ -1,0 +1,111 @@
+---
+
+- name: install docker
+  hosts: stage
+  become: yes
+  gather_facts: no
+  vars:
+    docker_app: "mysql"
+
+  tasks:
+
+    - name: Copy nameserver.sh
+      copy:
+        src: ./scripts/nameserver.sh
+        dest: /tmp/nameserver.sh
+        mode: '755'  
+
+    - name: Execute nameserver.sh
+      ansible.builtin.shell: /tmp/nameserver.sh 
+
+    - name: Set timezone to Asia/Tokyo
+      community.general.timezone:
+        name: Asia/Taipei
+
+    - name: Copy file with ca script
+      copy:
+        src: ./scripts/harbor_ca.sh
+        dest: /tmp/harbor_ca.sh
+        mode: '755'
+
+    - name: Execute the command ca script
+      ansible.builtin.shell: /tmp/harbor_ca.sh
+
+    - name: create docker.d/{{ docker_app }} directory
+      file:
+        path: "/tmp/{{ docker_app }}"
+        state: directory
+
+    - name: copy dockerfile to remote
+      copy:
+        src: "docker.d/{{ docker_app }}/docker-compose.yaml"
+        dest: "/tmp/{{ docker_app }}/docker-compose.yaml"
+        mode: "755"
+        force: yes
+
+    - name: mysql docker-compose up
+      community.docker.docker_compose:
+        project_src: "/tmp/{{ docker_app }}"
+        state: present        
+
+- name: docker run nginx
+  hosts: host2
+  become: yes
+  gather_facts: no
+  vars_files:
+    - "vars/dokerpath.yaml"
+  vars:
+    image: 
+      - name: nginx
+      - name: node
+
+  tasks:
+
+    - name: create docker.d/nginx directory
+      file:
+        path: "/tmp/nginx.d"
+        state: directory
+
+    - name: copy nginx dockerfile to remote
+      copy:
+        src: docker.d/nginx.d/docker-compose.yaml
+        dest: "/tmp/nginx.d/docker-compose.yaml"
+        mode: "755"
+        force: yes
+
+    - name: docker-compose down
+      community.docker.docker_compose:
+        project_src: "/tmp/nginx.d"
+        state: absent
+      when: 
+
+    - name: Prune everything
+      community.docker.docker_prune:
+        containers: true
+        images: true
+        images_filters:
+          dangling: false         
+        networks: true
+        volumes: false
+        builder_cache: true
+
+    - name: Log into harbo
+      docker_login:
+        registry: harbor.jad.local
+        username: admin
+        password: Harbor12345
+        reauthorize: yes        
+
+    - name: Pull and tag latest to image
+      community.docker.docker_image:
+        name: harbor.jad.local/library/{{ item.name }}:{{ image_tag }}
+        repository: my_{{ item.name }}:latest
+        force_tag: true
+        source: pull
+      loop: "{{ image }}"
+
+    - name: nginx docker-compose up
+      community.docker.docker_compose:
+        project_src: "/tmp/nginx.d"
+        state: present
+        

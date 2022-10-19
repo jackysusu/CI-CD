@@ -1,0 +1,46 @@
+version: '3'
+services:
+  nginx:
+    container_name: nginx
+    image: my_nginx:latest
+    depends_on:
+      - website1
+      - website2
+      - website3
+    ports:
+      - 80:80
+    volumes:
+      - /data/nginx:/data  
+    networks:
+      vpcbr:
+           ipv4_address: "10.5.0.5"
+  website1:
+    container_name: website1
+    image: my_node:latest
+    environment:
+      - PORT=8080
+    networks:
+      vpcbr:
+           ipv4_address: "10.5.0.11"
+  website2:
+    container_name: website2
+    image: my_node:latest
+    environment:
+      - PORT=8081
+    networks:
+      vpcbr:
+           ipv4_address: "10.5.0.12"
+  website3:
+    container_name: website3
+    image: my_node:latest
+    environment:
+      - PORT=8082
+    networks:
+      vpcbr:
+          ipv4_address: "10.5.0.13"
+networks:
+  vpcbr:
+      driver: bridge
+      ipam:
+        config:
+          - subnet: 10.5.0.0/16
